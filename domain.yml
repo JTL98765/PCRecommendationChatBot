@@ -1,0 +1,223 @@
+version: "3.1"
+
+# actions are the custom functionality that can be used in the conversation flow to perform custom processing
+actions:
+  - action_check_pc_database
+  - action_reset_recommendation
+  - action_set_has_greeted
+  - action_generate_explain_fit_prompt
+
+# Slots store values gathered during the conversation that help influence its flow.  Where type 
+# indicates from_llm this indicates that the llm will facilitate loading the field and so can interpret 
+# a users response intelligently
+slots:
+
+  # User generated slots
+  user_device_type:
+    type: categorical
+    values:
+      - laptop
+      - desktop
+      - undecided
+    mappings:
+      - type: from_llm
+
+  user_use_case:
+    type: categorical
+    values:
+      - gaming
+      - work
+      - study
+      - creative
+      - casual
+    mappings:
+      - type: from_llm
+
+  user_view_next_pc:
+    type: categorical
+    values:
+      - yes
+      - no
+    influence_conversation: false
+    mappings:
+      - type: from_llm
+
+  user_budget:
+    type: float
+    mappings:
+      - type: from_llm
+
+  user_provide_detailed_specs:
+    type: categorical
+    values:
+      - yes
+      - no
+    influence_conversation: false
+    mappings:
+      - type: from_llm
+
+  user_preferred_ram:
+    type: float
+    influence_conversation: false
+    mappings:
+      - type: from_llm
+
+  user_needs_discrete_gpu:
+    type: categorical
+    values:
+      - discrete
+      - integrated
+      - undecided
+    influence_conversation: false
+    mappings:
+      - type: from_llm
+
+  user_start_again:
+    type: categorical
+    values:
+      - yes
+      - no
+    influence_conversation: false
+    mappings:
+      - type: from_llm
+
+  # System generated slots
+  total_results:
+    type: float
+    influence_conversation: false
+
+  recommendation_index:
+    type: float
+    influence_conversation: false
+
+  pc_found:
+    type: bool
+    influence_conversation: false
+
+  has_greeted:
+    type: bool
+    influence_conversation: false
+    initial_value: false
+
+  pc_data:
+    type: any
+    influence_conversation: false
+
+# responses are the messages that the system can send the user during the conversation
+responses:
+# Greeting
+  utter_greet:
+    - text: "Welcome to the PC Recommendations Assistant. I’ll help you find a PC that suits your needs. For many questions, I’ll provide answer options to make responding easier, but you can type your own answer at any time."
+
+# Questions
+  utter_ask_user_device_type:
+    - text: "Firstly, are you looking for a laptop or a desktop?  If you don't know that is okay."
+      buttons:
+      - title: "Desktop"
+        payload: "desktop"
+      - title: "Laptop"
+        payload: "laptop"
+      - title: "Don't know"
+        payload: "undecided"
+
+  utter_ask_user_use_case:
+    - text: "What will you mainly be using the PC for? You can choose an option below or type your own answer. If you are unsure you can enter your use case and I will try to classify appropriately."
+      buttons:
+      - title: "Gaming"
+        payload: "gaming"
+      - title: "Work"
+        payload: "work"
+      - title: "Study"
+        payload: "study"
+      - title: "Creative"
+        payload: "creative"
+      - title: "Casual"
+        payload: "casual"
+
+  utter_ask_user_budget:
+    - text: "What is your budget in GBP?  Please enter a positive amount."
+
+  utter_ask_user_preferred_ram:
+    - text: "Do you have a minimum RAM requirement in mind (e.g. 8GB, 16GB)? If you don't know that is okay."
+      buttons:
+      - title: "4GB"
+        payload: "4"
+      - title: "8GB"
+        payload: "8"
+      - title: "16GB"
+        payload: "16"
+      - title: "32GB"
+        payload: "32"
+      - title: "Don't know"
+        payload: "null"
+
+  utter_ask_user_needs_discrete_gpu:
+    - text: "Do you require a discrete/dedicated graphics card? For gaming and creative PC use it is recommended that you have a discrete/dedicated graphics card. If you don't know that is okay."
+      buttons:
+      - title: "Integrated"
+        payload: "integrated"
+      - title: "Discrete"
+        payload: "discrete"
+      - title: "Don't know"
+        payload: "undecided"
+
+  utter_ask_user_provide_detailed_specs:
+    - text: "Do you have more detailed requirements that you'd like to tell me before I start searching?"
+      buttons:
+      - title: "Yes"
+        payload: "yes"
+      - title: "No"
+        payload: "no"
+
+  utter_ask_user_view_next_pc:
+    - text: "Do you want to see another pc recommendation?"
+      buttons:
+      - title: "Yes"
+        payload: "yes"
+      - title: "No"
+        payload: "no"
+
+  utter_no_more_recommendations:
+        - text: "There are no further results based on your current requirements."
+
+  utter_ask_user_start_again:
+    - text: "Do you want to start again?"
+      buttons:
+      - title: "Yes"
+        payload: "yes"
+      - title: "No"
+        payload: "no"
+
+  utter_invalid_budget:
+    - text: "Budget amount you entered is invalid.  Please enter a positive number below."
+
+# Responses
+  utter_no_results:
+    - text: "I couldn't find a PC matching your requirements within that budget."
+
+  utter_thank_you:
+    - text: "Thank you for using the PC Recommendation Assistant.  I hope you found a PC you like!"
+
+  utter_default:
+    - text: "Sorry, I didn't quite understand that. Could you rephrase?"
+
+  # This is a default response that can be used if no other response is available
+  utter_free_chitchat_response:
+    - text: "placeholder"
+      metadata:
+        rephrase: True
+        rephrase_prompt: |
+          The following is a conversation with an AI assistant built with Rasa.
+          The assistant can help the user find a pc.
+          The assistant is helpful, creative, clever, and very friendly.
+          The user is making small talk, and the assistant should respond, keeping things light.
+          Try to bring the conversation back to finding a pc.
+          You can summarise the pros and cons of the most recent PC recommendation.
+          Context / previous conversation with the user:
+          {{history}}
+          {{current_input}}
+          Suggested AI Response:
+
+session_config:
+  session_expiration_time: 15  
+  carry_over_slots_to_new_session: false  

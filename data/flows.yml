@@ -1,0 +1,215 @@
+version: "3.1"
+
+########################################################################
+# PC Recommendation conversation flow as used by RASA to control the
+# conversation
+########################################################################
+
+flows:
+  pc_recommendation:
+    description: This flow must start automatically when a new conversation begins
+      and no user preferences have been collected yet.
+    nlu_trigger:
+      - intent: trigger_welcome
+    steps:
+      # start_flow restarts the conversation and resets slots
+      - id: start_flow
+        action: action_reset_recommendation
+      # first_greeting greets the user when they first logon
+      - id: first_greeting
+        noop: true
+        next:
+          - if: slots.has_greeted is false
+            then: do_greet
+          - else: collect_device_type
+
+      # Send greeting to user
+      - id: do_greet
+        action: utter_greet
+        next: set_greet_flag
+
+      # Set flag indicating user has been greeted
+      - id: set_greet_flag
+        action: action_set_has_greeted
+        next: collect_device_type
+
+      # Ask user for device type
+      - id: collect_device_type
+        collect: user_device_type
+        description: >
+              Ask whether the user wants a laptop, desktop, or is unsure.
+              Accept only: laptop, desktop, or undecided.
+
+      # Ask user for use case
+      - collect: user_use_case
+        description: >
+          Classify the user's intended PC usage into ONE of:
+          gaming, work, study, creative, casual.
+          Return only the category name, lowercase.
+
+      # Ask user for their budget
+      - id: collect_user_budget
+        collect: user_budget
+        description: >
+              Extract the user's maximum budget as a whole number in GBP.
+              Only accept a positive integer of 50 or more.
+              Examples: 300, £500, 750 pounds.
+              Do not accept negative values, zero, or decimal amounts.
+              If the amount entered is a negative amount set value to null.
+              If a non-numeric value is entered then set value to null.
+        next: branch_have_detailed_spec
+
+      # Determine if we have detailed spec information before asking user
+      - id: branch_have_detailed_spec
+        noop: true
+        next:
+        # Only ask user detailed flow question if we dont have all detailed info
+          - if: slots.user_preferred_ram is null or slots.user_needs_discrete_gpu is null
+            then: user_provide_detailed_specs
+
+        # If detailed mode but nothing missing → finish
+          - else: do_lookup
+      # Ask user if they want to provide more detailed pc specification information
+      - id: user_provide_detailed_specs
+        collect: user_provide_detailed_specs
+        description: >
+          Determine if the user wants to provide more detailed pc specification information.
+          If the user says yes, yeah, sure, ok then yes.
+          If the user says no, no thanks, stop then no.
+          Return only yes or no.
+
+      # Branch conversation flow based on their response to user_provide_detailed_specs question
+      - id: branch_provide_detailed_spec
+        noop: true
+        next:
+        # Only enter detailed flow if user wants it
+          - if: slots.user_provide_detailed_specs = "yes" and slots.user_preferred_ram is null
+            then: ask_ram
+
+          - if: slots.user_provide_detailed_specs = "yes" and slots.user_needs_discrete_gpu is null
+            then: ask_gpu
+
+          - if: slots.user_provide_detailed_specs = "no"
+            then: do_lookup     
+
+        # If detailed mode but nothing missing → finish
+          - else: do_lookup     
+
+      # Ask user for their RAM requirements
+      - id: ask_ram
+        collect: user_preferred_ram
+        description: >
+          Optional. If the user specifies a RAM requirement, extract it as a number in GB.
+          Otherwise leave empty.
+        ask_before_filling: false
+        next: branch_provide_detailed_spec
+
+      # Ask user for their GPU requirements
+      - id: ask_gpu
+        collect: user_needs_discrete_gpu
+        description: >
+          Determine the user's GPU requirement.
+
+          Respond with exactly one of:
+          - discrete
+          - integrated
+          - undecided
+
+          If the user says they want a dedicated graphics card, gaming GPU,
+          NVIDIA, AMD, RTX, Radeon, or better performance then discrete.
+
+          If the user says integrated graphics is fine, basic use only,
+          office work only, no dedicated GPU needed then integrated.
+
+          If the user is unsure or says they don't know then undecided.
+
+          Return only one of: discrete, integrated, undecided.
+
+        ask_before_filling: false
+        next: branch_provide_detailed_spec
+
+      # Call action to perform PC Recommendation lookup
+      - id: do_lookup
+        action: action_check_pc_database
+        next: check_pcs_found
+
+      # Check if PC's were found
+      - id: check_pcs_found
+        noop: true
+        next:
+          - if: slots.pc_found = true
+            then: generate_pc_fit_prompt
+          - else: no_results_found
+
+      # Call action to generate a LLM summary of PC based on use case and pc data 
+      - id: generate_pc_fit_prompt
+        action: action_generate_explain_fit_prompt
+        next: check_more_pcs
+
+      # Branch conversation based on whether more PCs are available to review
+      - id: check_more_pcs
+        noop: true
+        next:
+          - if: slots.recommendation_index is not null
+            then: ask_next_pc
+          - else: no_more_results
+
+      # Ask user if they want to see the next PC recommendation
+      - id: ask_next_pc
+        collect: user_view_next_pc
+        description: >
+          Determine if the user wants to view the next pc.
+          If the user says yes, yeah, sure, ok, restart then yes.
+          If the user says no, no thanks, stop then no.
+          Return only yes or no.
+          Do not add any additional conversation at this point.
+        next: branch_next_pc
+
+      # Branch conversation based on whther user wants to see the next PC recommendation
+      - id: branch_next_pc
+        noop: true
+        next:
+        # Only enter detailed flow if user wants it
+          - if: slots.user_view_next_pc = "yes" 
+            then: do_lookup
+          - if: slots.user_view_next_pc = "no"
+            then: thank_you
+          - else: thank_you
+
+      # If no more PC recommendations then send associated message to user and then ask if they want to start again
+      - id: no_more_results
+        action: utter_no_more_recommendations
+        next: ask_start_again
+
+      # Send thank you message to user and then ask if they want to start again
+      - id: thank_you
+        action: utter_thank_you
+        next: ask_start_again
+
+      # Send no results found message to user and then ask if they want to start again
+      - id: no_results_found
+        action: utter_no_results
+        next: ask_start_again
+
+      # Ask user if they want to start again
+      - id: ask_start_again
+        collect: user_start_again
+        description: >
+          Determine if the user wants to start again.
+          If the user says yes, yeah, sure, ok, restart then yes.
+          If the user says no, no thanks, stop then no.
+          Return only yes or no.
+          Do not add any additional conversation at this point.
+        next: branch_start_again
+
+      # Branch conversation based on users response to start again question
+      - id: branch_start_again
+        noop: true
+        next:
+          - if: slots.user_start_again = "yes" 
+            then: start_flow
+          - if: slots.user_start_again = "no" 
+            then: END
+          - else: END
+
+

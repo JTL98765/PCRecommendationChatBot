@@ -1,0 +1,4 @@
+C:\PCChatBot\.venv\Scripts\Activate.ps1
+rasa train
+rasa run --enable-api --cors "*" --connector socketio
+Image sourced from: https://unsplash.com/photos/a-macbook-with-lines-of-code-on-its-screen-on-a-busy-desk-m_HRfLhgABo

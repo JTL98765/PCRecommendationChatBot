@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>PC Recommendation Assistant</title>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+    }
+
+    .app-container {
+      display: flex;
+      height: 100vh;
+    }
+
+    /* chat will be on right side */
+    #chat {
+      width: 40%;
+      height: 100vh;
+      border-right: 1px solid #ddd;
+      background-color: #ffffff;
+    }
+
+    /* image and title will be on left side */
+    #content {
+      width: 60%;
+      padding: 40px;
+        background-image: url("pc_background.jpg");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+    }
+
+    /* this overrides the default rasa widget format  */
+
+    .rw-widget-container {
+      position: relative !important;
+      width: 100% !important;
+      height: 100% !important;
+      max-height: 100% !important;
+      bottom: auto !important;
+      right: auto !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+    }
+
+    .rw-launcher {
+      display: none !important;
+    }
+
+    .rw-conversation-container {
+      height: 100% !important;
+    }
+
+  </style>
+</head>
+
+<body>
+
+<div class="app-container">
+  <div id="content">
+      <h1>PC Recommendation Assistant</h1>
+      <p>I will help you find the perfect PC!</p>
+  </div>
+   <div id="chat"></div>
+</div>
+
+<!-- this is the rasa webchat widget -->
+<script src="rasa-webchat.js"></script>
+
+<script>
+  WebChat.default({
+    initPayload: "/trigger_welcome",
+    socketUrl: "http://localhost:5005",
+    socketPath: "/socket.io/",
+    title: "PC Recommendation Bot",
+    embedded: true,        
+    showFullScreenButton: false,
+    params: {
+      storage: "session"
+    }
+  }, document.getElementById("chat"));
+</script>
+
+</body>
+</html>
